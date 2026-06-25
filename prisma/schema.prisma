@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  // url      = env("DATABASE_URL")
+}
+
+
+enum PreorderStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Preorder {
+  id            Int             @id @default(autoincrement())
+  name          String
+  products      Int
+  preorderWhen  String
+
+  status        PreorderStatus  @default(ACTIVE)
+
+  startsAt      DateTime
+  endsAt        DateTime
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  isDeleted     Boolean         @default(false)
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([isDeleted])
+  @@index([status, isDeleted])
+
+  @@map("preorders")
+}
