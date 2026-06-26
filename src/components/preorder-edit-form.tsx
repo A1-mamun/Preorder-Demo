@@ -1,261 +1,347 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+
+import { createPreorder, updatePreorder } from "@/lib/actions";
 import { type Preorder } from "@/lib/types";
+import { Field, FieldLabel } from "./ui/field";
 
 interface PreorderEditFormProps {
   preorder?: Preorder;
 }
 
+// Convert "2024-06-01 14:00:00" or ISO string → "2024-06-01T14:00" for datetime-local
+function toInputValue(val?: string | null): string {
+  if (!val) return "";
+  return val.replace(" ", "T").slice(0, 16);
+}
+
+// Convert datetime-local value back → ISO-like string the API expects
+function fromInputValue(val: string): string {
+  return val ? val.replace("T", " ") + ":00" : "";
+}
+
 export function PreorderEditForm({ preorder }: PreorderEditFormProps) {
   const router = useRouter();
   const isNew = !preorder;
+  const [isPending, startTransition] = useTransition();
 
-  const [formData, setFormData] = useState<Partial<Preorder>>({
-    name: preorder?.name || "",
-    products: preorder?.products || 1,
-    preorderWhen: preorder?.preorderWhen || "regardless-of-stock",
-    startsAt: preorder?.startsAt || "",
-    endsAt: preorder?.endsAt || "",
-    status: preorder?.status || "ACTIVE",
-  });
+  const [name, setName] = useState(preorder?.name ?? "");
+  const [products, setProducts] = useState<number>(preorder?.products ?? 0);
+  const [preorderWhen, setPreorderWhen] = useState(
+    preorder?.preorderWhen ?? "regardless-of-stock",
+  );
+  const [startsAt, setStartsAt] = useState(toInputValue(preorder?.startsAt));
+  const [endsAt, setEndsAt] = useState(toInputValue(preorder?.endsAt));
+  const [isActive, setIsActive] = useState(
+    preorder ? preorder.status === "ACTIVE" : true,
+  );
 
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >,
-  ) => {
-    const { name, value, type } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "number" ? parseInt(value, 10) : value,
-    }));
+  // Field-level validation errors
+  const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
+
+  const validate = () => {
+    const next: typeof errors = {};
+    if (!name.trim()) next.name = "Name is required.";
+    if (products < 0) next.products = "Products must be 0 or more.";
+    if (startsAt && endsAt && endsAt <= startsAt)
+      next.endsAt = "End date must be after start date.";
+    setErrors(next);
+    return Object.keys(next).length === 0;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, you'd save to an API here
-    console.log("Saving preorder:", formData);
-    router.push("/");
-  };
 
-  const handleCancel = () => {
-    router.push("/");
+    if (!validate()) return;
+
+    const payload = {
+      name: name.trim(),
+      products,
+      preorderWhen,
+      startsAt: fromInputValue(startsAt),
+      endsAt: fromInputValue(endsAt),
+      status: isActive ? ("ACTIVE" as const) : ("INACTIVE" as const),
+    };
+
+    startTransition(async () => {
+      const result = isNew
+        ? await createPreorder(payload)
+        : await updatePreorder(preorder.id, payload);
+
+      console.log("Result from create/update preorder:", result.data?.success);
+
+      if (result.error) {
+        toast.error(
+          isNew ? "Failed to create preorder" : "Failed to update preorder",
+          {
+            description: result.error,
+          },
+        );
+
+        return;
+      }
+
+      if (result.data?.success) {
+        toast.success(result.data?.message);
+
+        router.push("/");
+      }
+    });
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-2xl mx-auto space-y-6">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 mb-6 text-sm">
-        <Link
-          href="/"
-          className="text-gray-500 hover:text-gray-700 flex items-center gap-1"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Back
-        </Link>
-        <span className="text-gray-300">/</span>
-        <span className="text-gray-900 font-medium">
-          {isNew ? "Create Preorder" : "Edit Preorder"}
-        </span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 text-sm ">
+          <Button variant="outline" size="sm" asChild className="p-2">
+            <Link href="/">
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </Link>
+          </Button>
+          <span>{isNew ? "" : `/ Edit "${preorder.name}"`}</span>
+        </div>
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" type="button" asChild>
+            <Link href="/">Cancel</Link>
+          </Button>
+          <Button type="submit" disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isNew ? "Create Preorder" : "Save Changes"}
+          </Button>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-            <h2 className="text-lg font-semibold text-gray-900">
-              {isNew ? "Create Preorder" : "Edit Preorder"}
-            </h2>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
-              >
-                Save changes
-              </button>
-            </div>
-          </div>
+      <form onSubmit={handleSubmit} noValidate>
+        <Card>
+          <CardHeader>
+            <CardTitle>Preorder Details</CardTitle>
+            <CardDescription>
+              These values apprea in the preorder list.
+            </CardDescription>
+          </CardHeader>
 
-          {/* Body */}
-          <div className="p-6 space-y-6">
-            <p className="text-sm text-gray-500 mb-2">
-              These values appear in the preorders list.
-            </p>
+          <Separator />
 
+          <CardContent className="space-y-6">
             {/* Name */}
-            <div className="space-y-1.5">
-              <label
+            <div className="flex flex-col sm:flex-row gap-5">
+              <Label
                 htmlFor="name"
-                className="block text-sm font-medium text-gray-700"
+                className="flex flex-col items-start justify-start w-full sm:w-1/2"
               >
-                Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
+                <div>
+                  Name <span className="text-destructive">*</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  A label to recognise this preorder by.
+                </p>
+              </Label>
+              <Input
                 id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                placeholder="Multi variant 3"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (errors.name)
+                    setErrors((p) => ({ ...p, name: undefined }));
+                }}
+                placeholder="e.g. Summer Drop 2025"
+                aria-invalid={!!errors.name}
+                className="w-full sm:w-1/2"
               />
-              <p className="text-xs text-gray-500">
-                A label to recognize this preorder by.
-              </p>
+              {errors.name && (
+                <p className="text-xs text-destructive">{errors.name}</p>
+              )}
             </div>
+
+            <Separator />
 
             {/* Products */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="products"
-                className="block text-sm font-medium text-gray-700"
+            <div className="flex flex-col sm:flex-row gap-5">
+              <Label
+                htmlFor="name"
+                className="flex flex-col items-start justify-start w-full sm:w-1/2"
               >
-                Products
-              </label>
-              <input
-                type="number"
+                <div>Products</div>
+                <p className="text-xs text-muted-foreground">
+                  Number of products covered by this preorder.
+                </p>
+              </Label>
+              <Input
                 id="products"
-                name="products"
-                value={formData.products}
-                onChange={handleChange}
+                type="number"
                 min={0}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                value={products}
+                onChange={(e) => {
+                  setProducts(parseInt(e.target.value, 10) || 0);
+                  if (errors.products)
+                    setErrors((p) => ({ ...p, products: undefined }));
+                }}
+                aria-invalid={!!errors.products}
+                className="w-full sm:w-1/2"
               />
-              <p className="text-xs text-gray-500">
-                Number of products covered by this preorder.
-              </p>
+              {errors.products && (
+                <p className="text-xs text-destructive">{errors.products}</p>
+              )}
             </div>
+
+            <Separator />
 
             {/* Preorder when */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="preorderWhen"
-                className="block text-sm font-medium text-gray-700"
+            <div className="flex flex-col sm:flex-row gap-5">
+              <Label
+                htmlFor="name"
+                className="flex flex-col items-start justify-start w-full sm:w-1/2"
               >
-                Preorder when
-              </label>
-              <select
-                id="preorderWhen"
-                name="preorderWhen"
-                value={formData.preorderWhen}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-              >
-                <option value="out-of-stock">Out of stock</option>
-                <option value="regardless-of-stock">Regardless of stock</option>
-              </select>
-              <p className="text-xs text-gray-500">
-                When customers are allowed to preorder.
-              </p>
+                <div>Preorder when</div>
+                <p className="text-xs text-muted-foreground">
+                  When customers are allowed to preorder.
+                </p>
+              </Label>
+              <div className="w-full sm:w-1/2">
+                <Select
+                  value={preorderWhen}
+                  onValueChange={(value) =>
+                    setPreorderWhen(
+                      value as "out-of-stock" | "regardless-of-stock",
+                    )
+                  }
+                >
+                  <SelectTrigger id="preorderWhen" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="out-of-stock">Out of stock</SelectItem>
+                    <SelectItem value="regardless-of-stock">
+                      Regardless of stock
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            <Separator />
 
             {/* Starts at */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="startsAt"
-                className="block text-sm font-medium text-gray-700"
+            <div className="flex flex-col sm:flex-row gap-5">
+              <Label
+                htmlFor="name"
+                className="flex flex-col items-start justify-start w-full sm:w-1/2"
               >
-                Starts at
-              </label>
-              <input
-                type="datetime-local"
+                <div>Starts at</div>
+                <p className="text-xs text-muted-foreground">
+                  When the preorder window opens.
+                </p>
+              </Label>
+              <Input
                 id="startsAt"
-                name="startsAt"
-                value={formData.startsAt?.replace(" ", "T") || ""}
+                type="datetime-local"
+                value={startsAt}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  setFormData((prev) => ({
-                    ...prev,
-                    startsAt: val ? val.replace("T", " ") : "",
-                  }));
+                  setStartsAt(e.target.value);
+                  if (errors.endsAt)
+                    setErrors((p) => ({ ...p, endsAt: undefined }));
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                className="w-full sm:w-1/2"
               />
-              <p className="text-xs text-gray-500">
-                When the preorder window opens.
-              </p>
             </div>
+
+            <Separator />
 
             {/* Ends at */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="endsAt"
-                className="block text-sm font-medium text-gray-700"
+            <div className="flex flex-col sm:flex-row gap-5">
+              <Label
+                htmlFor="name"
+                className="flex flex-col items-start justify-start w-full sm:w-1/2"
               >
-                Ends at
-              </label>
-              <input
-                type="datetime-local"
+                <div>Ends at</div>
+                <p className="text-xs text-muted-foreground">
+                  When the preorder window closes.
+                </p>
+              </Label>
+              <Input
                 id="endsAt"
-                name="endsAt"
-                value={formData.endsAt?.replace(" ", "T") || ""}
+                type="datetime-local"
+                value={endsAt}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  setFormData((prev) => ({
-                    ...prev,
-                    endsAt: val ? val.replace("T", " ") : "",
-                  }));
+                  setEndsAt(e.target.value);
+                  if (errors.endsAt)
+                    setErrors((p) => ({ ...p, endsAt: undefined }));
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                aria-invalid={!!errors.endsAt}
+                className="w-full sm:w-1/2"
               />
-              <p className="text-xs text-gray-500">
-                Leave empty for no end date.
-              </p>
+              {errors.endsAt && (
+                <p className="text-xs text-destructive">{errors.endsAt}</p>
+              )}
             </div>
 
-            {/* Status */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="status"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Status
-              </label>
-              <select
-                id="status"
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-              >
-                <option value="inactive">Inactive</option>
-                <option value="active">Active</option>
-              </select>
-              <p className="text-xs text-gray-500">
-                Active preorders are visible to customers.
-              </p>
-            </div>
-          </div>
+            <Separator />
 
-          {/* Footer */}
-          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
-            >
-              Save changes
-            </button>
-          </div>
-        </div>
+            {/* Status toggle */}
+            <div className="flex flex-col sm:flex-row gap-5 items-center ">
+              <Label
+                htmlFor="status-toggle"
+                className="flex flex-col items-start justify-start w-full sm:w-1/2"
+              >
+                <div>Status</div>
+                <p className="text-xs text-muted-foreground">
+                  Active preorders are visible to customers.
+                </p>
+              </Label>
+              <Field
+                orientation="horizontal"
+                data-disabled
+                className="w-full sm:w-1/2"
+              >
+                <Switch
+                  className=""
+                  id="status-toggle"
+                  checked={isActive}
+                  onCheckedChange={setIsActive}
+                />
+                <FieldLabel htmlFor="status-toggle">Active</FieldLabel>
+              </Field>
+            </div>
+          </CardContent>
+
+          <CardFooter className="flex justify-end gap-3 border-t pt-0">
+            <Button variant="outline" type="button" asChild>
+              <Link href="/">Cancel</Link>
+            </Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isNew ? "Create Preorder" : "Save Changes"}
+            </Button>
+          </CardFooter>
+        </Card>
       </form>
     </div>
   );

@@ -1,23 +1,20 @@
-## .env
+# Install dependencies
 
-Add to .env file
+pnpm install
 
-```code
+## Environment Setup
+
+Create a `.env` file in the project root and copy the following values:
+
+```env
 DATABASE_URL="file:./dev.db"
 NODE_ENV="development"
-```
 
-## Setup
+NEXT_PUBLIC_BASE_URL="http://localhost:3000"  // replace with your own
 
-Run the comand
-
-```bash
+# Setup database
 pnpm setup
-```
 
-## Run
-
-```bash
+# Start development server
 pnpm dev
-
 ```

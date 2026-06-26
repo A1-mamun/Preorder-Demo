@@ -31,8 +31,8 @@ export default async function PreordersPage({
   return (
     <main className="min-h-screen bg-gray-50 p-6">
       <Suspense>
-        {/* <PreordersList initialData={data} initialParams={params} /> */}
-        <PreordersList data={data.data} meta={data.meta} />
+        <PreordersList initialData={data} initialParams={params} />
+        {/* <PreordersList data={data.data} meta={data.meta} /> */}
       </Suspense>
     </main>
   );

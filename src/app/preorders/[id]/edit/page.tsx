@@ -1,7 +1,6 @@
-// app/preorders/[id]/edit/page.tsx
-import { PreorderEditForm } from "@/components/preorder-edit-form";
 import { notFound } from "next/navigation";
-import { getPreorderById } from "@/lib/data";
+import { PreorderEditForm } from "@/components/preorder-edit-form";
+import { getPreorderById } from "@/lib/actions";
 
 interface EditPageProps {
   params: Promise<{ id: string }>;
@@ -9,15 +8,18 @@ interface EditPageProps {
 
 export default async function EditPreorderPage({ params }: EditPageProps) {
   const { id } = await params;
-  const preorder = getPreorderById(id);
+  const result = await getPreorderById(id);
 
-  if (!preorder) {
-    notFound();
+  if (result.error) {
+    // 404 from an unexpected API failure
+    if (result.error === "not_found") notFound();
+    // For other errors
+    throw new Error(result.error);
   }
 
   return (
     <main className="min-h-screen bg-gray-50 p-6">
-      <PreorderEditForm preorder={preorder} />
+      <PreorderEditForm preorder={result.data?.data} />
     </main>
   );
 }

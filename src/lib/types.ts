@@ -7,7 +7,7 @@ export interface Preorder {
   name: string;
   products: number;
   preorderWhen: PreorderWhen;
-  startsAt: string; // formatted date string
+  startsAt: string;
   endsAt: string | null;
   status: PreorderStatus;
   createdAt: string;
@@ -21,3 +21,26 @@ export interface Meta {
 // Sort fields
 export type SortField = "name" | "createdAt" | "startsAt" | "endsAt";
 export type SortOrder = "asc" | "desc";
+
+export interface TResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+  meta?: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}
+
+export type ActionResult<T> =
+  | { data: T; error?: never }
+  | { data?: never; error: string };
+
+export interface GetPreordersParams {
+  status?: string;
+  sortBy?: string;
+  sortOrder?: string;
+  page?: string;
+  limit?: string;
+}

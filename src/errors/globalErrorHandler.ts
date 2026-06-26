@@ -1,5 +1,3 @@
-// src/errors/globalErrorHandler.ts
-
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import AppError from "./AppError";

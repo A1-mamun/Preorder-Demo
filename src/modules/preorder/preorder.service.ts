@@ -7,7 +7,6 @@ const getAllPreordersFromDB = async (query: {
   status?: string;
   page?: string;
   limit?: string;
-  //   pageSize?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
 }) => {

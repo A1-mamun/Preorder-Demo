@@ -1,4 +1,3 @@
-// app/preorders/new/page.tsx
 import { PreorderEditForm } from "@/components/preorder-edit-form";
 
 export default function NewPreorderPage() {

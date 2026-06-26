@@ -9,7 +9,6 @@ const getAllPreorders = async (searchParams: URLSearchParams) => {
     status: searchParams.get("status") || undefined,
     page: searchParams.get("page") || undefined,
     limit: searchParams.get("limit") || undefined,
-    // pageSize: searchParams.get("pageSize") || undefined,
     sortBy: searchParams.get("sortBy") || undefined,
     sortOrder:
       (searchParams.get("sortOrder") as "asc" | "desc" | null) || undefined,

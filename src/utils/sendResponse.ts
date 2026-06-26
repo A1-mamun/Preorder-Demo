@@ -1,5 +1,3 @@
-// src/utils/sendResponse.ts
-
 import { NextResponse } from "next/server";
 
 type TResponse<T> = {
