@@ -1,3 +1,10 @@
+# Clone the repository
+
+```bash
+git clone https://github.com/A1-mamun/Preorder-Demo.git
+cd Preorder-Demo
+```
+
 # Install dependencies
 
 ```bash

@@ -26,7 +26,7 @@ export default async function PreordersPage({
   });
   const data = await res.json();
 
-  console.log("data", data);
+  // console.log("data", data);
 
   return (
     <main className="min-h-screen bg-gray-50 p-6">
